@@ -87,48 +87,74 @@ function savePassage(state: PassageState) {
   window.localStorage.setItem(PASSAGE_KEY, JSON.stringify(state));
 }
 
-// AIS tracking: auto-record position every hour
+// AIS tracking: auto-record position every hour, pulls from VesselFinder
 function useAISTracker(entries: LogEntry[], setEntries: React.Dispatch<React.SetStateAction<LogEntry[]>>) {
   useEffect(() => {
-    const checkAndRecord = () => {
+    const checkAndRecord = async () => {
       const now = new Date();
       const lastEntry = entries[0];
-      
+
       // Check if we need a new hourly entry
       if (lastEntry) {
         const lastTime = new Date(lastEntry.timestamp);
         const hoursSinceLast = (now.getTime() - lastTime.getTime()) / (1000 * 60 * 60);
         if (hoursSinceLast < 1) return; // Less than 1 hour since last entry
       }
-      
-      // Auto-create hourly entry with mock position (will be replaced with real AIS later)
+
+      // Fetch real AIS position from our API
+      let lat = "--° --.---' N";
+      let lng = "--° --.---' W";
+      let sog = "--";
+
+      try {
+        const res = await fetch("/api/ais-position");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.latitude !== undefined && data.longitude !== undefined) {
+            const absLat = Math.abs(data.latitude);
+            const latDeg = Math.floor(absLat);
+            const latMin = ((absLat - latDeg) * 60).toFixed(3);
+            lat = `${latDeg}° ${latMin}' ${data.latitude >= 0 ? "N" : "S"}`;
+
+            const absLng = Math.abs(data.longitude);
+            const lngDeg = Math.floor(absLng);
+            const lngMin = ((absLng - lngDeg) * 60).toFixed(3);
+            lng = `${lngDeg}° ${lngMin}' ${data.longitude >= 0 ? "E" : "W"}`;
+
+            sog = data.sog ? `${data.sog.toFixed(1)} kn` : "0.0 kn";
+          }
+        }
+      } catch {
+        // Fall back to mock data
+      }
+
       const entry: LogEntry = {
         id: generateId(),
         timestamp: now.toISOString(),
         date: `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}`,
         time: `${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}`,
-        latitude: "--° --.---' N",
-        longitude: "--° --.---' W",
+        latitude: lat,
+        longitude: lng,
         weather: "--",
-        windSpeed: "--",
+        windSpeed: sog,
         windDir: "--",
         seaState: "--",
         visibility: "--",
         barometer: "----",
         temperature: "--",
         engineHours: "--",
-        notes: "Auto-recorded hourly position (AIS pending)",
+        notes: `Auto-recorded hourly AIS position (SOG: ${sog})`,
       };
-      
+
       setEntries(prev => [entry, ...prev]);
     };
 
     // Check every 5 minutes
     const interval = setInterval(checkAndRecord, 5 * 60 * 1000);
-    
+
     // Also check immediately on mount
     checkAndRecord();
-    
+
     return () => clearInterval(interval);
   }, [entries, setEntries]);
 }
