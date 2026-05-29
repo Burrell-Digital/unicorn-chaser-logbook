@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Anchor, Radio, Hash, Calendar, Clock } from "lucide-react";
+import AISPositionTracker from "./AISPositionTracker";
 
 type VesselInfo = {
   callSign: string;
@@ -90,6 +91,10 @@ export default function VesselHeader() {
           </span>
         </div>
 
+        <div className="hidden xl:flex items-center">
+          <AISPositionTracker />
+        </div>
+
         <div className="flex items-center gap-2 lg:ml-auto">
           <Calendar size={14} className="text-gold" />
           <span className="text-xs uppercase tracking-widest text-navy/60">
@@ -109,6 +114,11 @@ export default function VesselHeader() {
             {timeStr}
           </span>
         </div>
+      </div>
+
+      {/* AIS position on mobile/tablet */}
+      <div className="flex xl:hidden mt-1.5">
+        <AISPositionTracker />
       </div>
     </header>
   );
